@@ -2555,6 +2555,18 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
   }
 
   /**
+   * Builds VertxOptions. Visible for testing.
+   *
+   * @return Instance of VertxOptions.
+   */
+  @VisibleForTesting
+  protected VertxOptions createVertxOptions() {
+    return new VertxOptions()
+        .setPreferNativeTransport(true)
+        .setWorkerPoolSize(unstableRPCOptions.getRpcVertxWorkerPoolSize().getValue());
+  }
+
+  /**
    * Builds Vertx instance from MetricsSystem. Visible for testing.
    *
    * @param metricsSystem Instance of MetricsSystem
@@ -2563,7 +2575,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
   @VisibleForTesting
   protected Vertx createVertx(final MetricsSystem metricsSystem) {
     return Vertx.builder()
-        .with(new VertxOptions().setPreferNativeTransport(true))
+        .with(createVertxOptions())
         .withMetrics(new VertxMetricsAdapterFactory(metricsSystem))
         .build();
   }
