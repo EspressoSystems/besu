@@ -479,6 +479,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 100,
                 miningConfiguration.getUnstable().getPosBlockCreationRepetitionMinDuration()
                     - lastDuration);
+        if (isBlockCreationCancelled(payloadIdentifier)) {
+          return null;
+        }
         LOG.debug("Waiting {}ms before repeating block creation", waitBeforeRepetition);
         Thread.sleep(waitBeforeRepetition);
       } catch (final CancellationException | InterruptedException ce) {
