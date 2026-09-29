@@ -221,7 +221,7 @@ public class EngineNewPayloadV1Test extends AbstractScheduledApiTest {
 
     final PayloadStatusV1 first = fromSuccessResp(resp(requestParams(payload)));
     assertThat(first.getStatus()).isEqualTo(INVALID);
-    assertThat(first.getLatestValidHash()).contains(mockHash);
+    assertThat(first.getLatestValidHash()).isEqualTo(mockHash);
     assertThat(badBlockManager.getLatestValidHash(mockHeader.getHash())).contains(mockHash);
 
     badBlockManager.addBadBlock(
@@ -232,7 +232,7 @@ public class EngineNewPayloadV1Test extends AbstractScheduledApiTest {
 
     final PayloadStatusV1 second = fromSuccessResp(resp(requestParams(payload)));
     assertThat(second.getStatus()).isEqualTo(INVALID);
-    assertThat(second.getLatestValidHash()).contains(mockHash);
+    assertThat(second.getLatestValidHash()).isEqualTo(mockHash);
     assertThat(second.getError()).isEqualTo("Block is a known bad block.");
   }
 
@@ -412,7 +412,7 @@ public class EngineNewPayloadV1Test extends AbstractScheduledApiTest {
     badBlockManager.addBadHeader(mockHeader, BadBlockCause.fromValidationFailure("error 42"));
     var resp = resp(requestParams(mockEnginePayloadParam(mockHeader, emptyList())));
     PayloadStatusV1 res = fromSuccessResp(resp);
-    assertThat(res.getLatestValidHash()).isEmpty();
+    assertThat(res.getLatestValidHash()).isNull();
     assertThat(res.getStatus()).isEqualTo(INVALID);
     assertThat(res.getError()).isEqualTo("Block is a known bad block.");
     verify(engineCallListener, times(1)).executionEngineCalled();
@@ -437,7 +437,7 @@ public class EngineNewPayloadV1Test extends AbstractScheduledApiTest {
 
     PayloadStatusV1 res = fromSuccessResp(resp);
     assertThat(res.getStatus()).isEqualTo(INVALID);
-    assertThat(res.getLatestValidHash()).contains(latestValidHash);
+    assertThat(res.getLatestValidHash()).isEqualTo(latestValidHash);
     assertThat(res.getError())
         .isEqualTo("Block descends from bad block " + badParentHeader.toLogString());
     assertThat(badBlockManager.isBadBlock(childHeader.getHash())).isTrue();
