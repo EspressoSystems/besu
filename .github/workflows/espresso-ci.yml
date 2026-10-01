@@ -1,0 +1,114 @@
+name: Espresso CI
+
+# Fork CI: every push to any branch builds, tests, and publishes an image tagged with the
+# branch name. Kept out of upstream's ci.yml so upstream merges stay clean.
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GRADLE_OPTS: "-Xmx6g -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+  IMAGE_NAME: ghcr.io/espressosystems/besu
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-8core
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew build -x test
+
+  test:
+    runs-on: ubuntu-24.04-8core
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew test
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/test/**'
+          retention-days: 7
+
+  # No `needs:`: a failing test shouldn't delay the image. distDockerCopy compiles, so a
+  # broken build still fails here.
+  image:
+    runs-on: ubuntu-24.04-8core
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          set -euo pipefail
+          SLUG=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+          SHA="sha-${GITHUB_SHA:0:12}"
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE_NAME}:${SLUG},${IMAGE_NAME}:${SHA}" >> "$GITHUB_OUTPUT"
+
+      # docker/Dockerfile COPYs a `besu/` directory that does not exist in the repo. Gradle
+      # untars the distribution into build/docker-besu/ and copies the Dockerfile beside it;
+      # that staged directory is the build context used below.
+      - name: Stage Docker build context
+        run: ./gradlew distDockerCopy
+
+      - uses: docker/setup-buildx-action@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: build/docker-besu
+          push: true
+          provenance: false
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.tags.outputs.slug }}-${{ steps.tags.outputs.sha }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=espresso-image
+          cache-to: type=gha,scope=espresso-image,mode=max
+
+      - name: Print image reference
+        run: |
+          {
+            echo "### Besu image"
+            echo
+            echo '```'
+            echo "BESU_IMAGE=${IMAGE_NAME}:${{ steps.tags.outputs.slug }}"
+            echo '```'
+            echo
+            echo "Also tagged \`${{ steps.tags.outputs.sha }}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
