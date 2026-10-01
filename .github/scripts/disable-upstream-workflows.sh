@@ -5,8 +5,10 @@
 # files untouched and never conflicts with an upstream merge. Re-run after a merge that
 # brings in new upstream workflows.
 #
-# Workflows only register after Actions is enabled on the fork (Actions tab -> "I
-# understand my workflows, go ahead and enable them"); until then this lists nothing.
+# GitHub registers a workflow only once something triggers it, even if the file is on the
+# default branch, and an unregistered one cannot be disabled (the API 404s). So upstream's
+# workflows each run once before this can turn them off. In practice nothing of theirs
+# triggers on a branch push -- ci.yml wants main or a PR, dco.yml a PR, the rest cron.
 set -euo pipefail
 
 REPO="${1:-EspressoSystems/besu}"
