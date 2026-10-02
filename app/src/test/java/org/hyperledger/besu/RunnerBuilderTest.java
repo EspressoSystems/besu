@@ -20,6 +20,8 @@ import static org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueSegmentIden
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
@@ -38,6 +40,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.ImmutableApiConfiguration;
 import org.hyperledger.besu.ethereum.api.graphql.GraphQLConfiguration;
+import org.hyperledger.besu.ethereum.api.jsonrpc.EngineJsonRpcService;
 import org.hyperledger.besu.ethereum.api.jsonrpc.InProcessRpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.ipc.JsonRpcIpcConfiguration;
@@ -73,11 +76,13 @@ import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
 import org.hyperledger.besu.services.TransactionValidatorServiceImpl;
 
+import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import io.vertx.core.Vertx;
 import org.apache.tuweni.bytes.Bytes;
@@ -167,6 +172,7 @@ public final class RunnerBuilderTest {
             .inProcessRpcConfiguration(mock(InProcessRpcConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(vertx)
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
             .rpcEndpointService(new RpcEndpointServiceImpl())
@@ -219,6 +225,7 @@ public final class RunnerBuilderTest {
             .inProcessRpcConfiguration(mock(InProcessRpcConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(Vertx.vertx())
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(storageProvider)
             .rpcEndpointService(new RpcEndpointServiceImpl())
@@ -280,6 +287,7 @@ public final class RunnerBuilderTest {
             .inProcessRpcConfiguration(mock(InProcessRpcConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(Vertx.vertx())
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
             .rpcEndpointService(new RpcEndpointServiceImpl())
@@ -290,6 +298,69 @@ public final class RunnerBuilderTest {
 
     assertThat(runner.getJsonRpcPort()).isPresent();
     assertThat(runner.getEngineJsonRpcPort()).isPresent();
+  }
+
+  @Test
+  public void engineApiUsesDedicatedVertxInstanceAndClosesItOnShutdown()
+      throws NoSuchFieldException, IllegalAccessException {
+    setupBlockchainAndBlock();
+
+    final JsonRpcConfiguration jrpc = JsonRpcConfiguration.createDefault();
+    jrpc.setEnabled(true);
+    final JsonRpcConfiguration engine = JsonRpcConfiguration.createEngineDefault();
+    engine.setEnabled(true);
+    final EthNetworkConfig mockMainnet = mock(EthNetworkConfig.class);
+    when(mockMainnet.networkId()).thenReturn(BigInteger.ONE);
+    MergeConfiguration.setMergeEnabled(true);
+    when(besuController.getMiningCoordinator()).thenReturn(mock(MergeMiningCoordinator.class));
+
+    final Vertx mainVertx = Vertx.vertx();
+    final Vertx engineVertx = spy(Vertx.vertx());
+
+    final Runner runner =
+        new RunnerBuilder()
+            .discoveryEnabled(true)
+            .p2pListenInterface("0.0.0.0")
+            .p2pListenPort(30303)
+            .p2pAdvertisedHost("127.0.0.1")
+            .p2pEnabled(true)
+            .natMethod(NatMethod.NONE)
+            .besuController(besuController)
+            .ethNetworkConfig(mockMainnet)
+            .metricsSystem(new NoOpMetricsSystem())
+            .permissioningService(mock(PermissioningServiceImpl.class))
+            .jsonRpcConfiguration(jrpc)
+            .engineJsonRpcConfiguration(engine)
+            .graphQLConfiguration(mock(GraphQLConfiguration.class))
+            .webSocketConfiguration(mock(WebSocketConfiguration.class))
+            .jsonRpcIpcConfiguration(mock(JsonRpcIpcConfiguration.class))
+            .inProcessRpcConfiguration(mock(InProcessRpcConfiguration.class))
+            .metricsConfiguration(mock(MetricsConfiguration.class))
+            .vertx(mainVertx)
+            .engineVertx(engineVertx)
+            .dataDir(dataDir)
+            .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
+            .rpcEndpointService(new RpcEndpointServiceImpl())
+            .besuPluginContext(mock(BesuPluginContextImpl.class))
+            .apiConfiguration(ImmutableApiConfiguration.builder().build())
+            .transactionValidatorService(mock(TransactionValidatorServiceImpl.class))
+            .build();
+
+    final Field engineJsonRpcField = Runner.class.getDeclaredField("engineJsonRpc");
+    engineJsonRpcField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    final Optional<EngineJsonRpcService> engineJsonRpcService =
+        (Optional<EngineJsonRpcService>) engineJsonRpcField.get(runner);
+
+    final Field serviceVertxField = EngineJsonRpcService.class.getDeclaredField("vertx");
+    serviceVertxField.setAccessible(true);
+    final Vertx serviceVertx = (Vertx) serviceVertxField.get(engineJsonRpcService.orElseThrow());
+
+    assertThat(serviceVertx).isSameAs(engineVertx).isNotSameAs(mainVertx);
+
+    runner.close();
+
+    verify(engineVertx).close();
   }
 
   @Test
@@ -325,6 +396,7 @@ public final class RunnerBuilderTest {
             .graphQLConfiguration(mock(GraphQLConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(Vertx.vertx())
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
             .rpcEndpointService(new RpcEndpointServiceImpl())
@@ -369,6 +441,7 @@ public final class RunnerBuilderTest {
             .graphQLConfiguration(mock(GraphQLConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(Vertx.vertx())
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
             .rpcEndpointService(new RpcEndpointServiceImpl())
@@ -414,6 +487,7 @@ public final class RunnerBuilderTest {
             .inProcessRpcConfiguration(mock(InProcessRpcConfiguration.class))
             .metricsConfiguration(mock(MetricsConfiguration.class))
             .vertx(Vertx.vertx())
+            .engineVertx(Vertx.vertx())
             .dataDir(dataDir)
             .storageProvider(mock(KeyValueStorageProvider.class, RETURNS_DEEP_STUBS))
             .rpcEndpointService(new RpcEndpointServiceImpl())

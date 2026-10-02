@@ -111,4 +111,4 @@ jobs:
             echo '```'
             echo
             echo "Also tagged \`${{ steps.tags.outputs.sha }}\`."
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
