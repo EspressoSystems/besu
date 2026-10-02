@@ -25,6 +25,12 @@ import picocli.CommandLine;
 /** The Rpc Cli options. */
 public class RPCOptions {
 
+  /** Default Vertx worker pool size for the engine API. */
+  public static final int DEFAULT_ENGINE_WORKER_POOL_SIZE = 4;
+
+  /** Default Vertx event loop pool size for the engine API. */
+  public static final int DEFAULT_ENGINE_EVENT_LOOP_POOL_SIZE = 2;
+
   @CommandLine.Option(
       hidden = true,
       names = {"--Xhttp-timeout-seconds"},
@@ -52,6 +58,22 @@ public class RPCOptions {
       description = "Vertx worker pool size (default: ${DEFAULT-VALUE})")
   private final PositiveNumber rpcVertxWorkerPoolSize =
       PositiveNumber.fromInt(VertxOptions.DEFAULT_WORKER_POOL_SIZE);
+
+  @CommandLine.Option(
+      hidden = true,
+      names = {"--Xengine-rpc-vertx-worker-pool-size"},
+      converter = PositiveNumberConverter.class,
+      description = "Vertx worker pool size for the engine API (default: ${DEFAULT-VALUE})")
+  private final PositiveNumber engineRpcVertxWorkerPoolSize =
+      PositiveNumber.fromInt(DEFAULT_ENGINE_WORKER_POOL_SIZE);
+
+  @CommandLine.Option(
+      hidden = true,
+      names = {"--Xengine-rpc-vertx-event-loop-pool-size"},
+      converter = PositiveNumberConverter.class,
+      description = "Vertx event loop pool size for the engine API (default: ${DEFAULT-VALUE})")
+  private final PositiveNumber engineRpcVertxEventLoopPoolSize =
+      PositiveNumber.fromInt(DEFAULT_ENGINE_EVENT_LOOP_POOL_SIZE);
 
   /** Default Constructor. */
   RPCOptions() {}
@@ -99,5 +121,23 @@ public class RPCOptions {
    */
   public PositiveNumber getRpcVertxWorkerPoolSize() {
     return rpcVertxWorkerPoolSize;
+  }
+
+  /**
+   * Gets engine rpc vertx worker pool size.
+   *
+   * @return the engine rpc vertx worker pool size
+   */
+  public PositiveNumber getEngineRpcVertxWorkerPoolSize() {
+    return engineRpcVertxWorkerPoolSize;
+  }
+
+  /**
+   * Gets engine rpc vertx event loop pool size.
+   *
+   * @return the engine rpc vertx event loop pool size
+   */
+  public PositiveNumber getEngineRpcVertxEventLoopPoolSize() {
+    return engineRpcVertxEventLoopPoolSize;
   }
 }
