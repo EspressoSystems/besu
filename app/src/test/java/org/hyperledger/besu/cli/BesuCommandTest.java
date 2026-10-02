@@ -2425,6 +2425,27 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  public void assertThatDefaultEngineRpcVertxPoolSizesWork() {
+    final TestBesuCommand command = parseCommand();
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
+    assertThat(command.getEngineVertxOptions().getWorkerPoolSize()).isEqualTo(4);
+    assertThat(command.getEngineVertxOptions().getEventLoopPoolSize()).isEqualTo(2);
+  }
+
+  @Test
+  public void assertThatEngineRpcVertxPoolSizesAreIndependentOfTheJsonRpcPool() {
+    final TestBesuCommand command =
+        parseCommand(
+            "--Xrpc-vertx-worker-pool-size=64",
+            "--Xengine-rpc-vertx-worker-pool-size=6",
+            "--Xengine-rpc-vertx-event-loop-pool-size=3");
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
+    assertThat(command.getVertxOptions().getWorkerPoolSize()).isEqualTo(64);
+    assertThat(command.getEngineVertxOptions().getWorkerPoolSize()).isEqualTo(6);
+    assertThat(command.getEngineVertxOptions().getEventLoopPoolSize()).isEqualTo(3);
+  }
+
+  @Test
   public void assertThatDiscoveryUdpAndMetricsTcpMaySharePort() {
     parseCommand("--p2p-discovery-port=44444", "--metrics-enabled", "--metrics-port=44444");
     assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
