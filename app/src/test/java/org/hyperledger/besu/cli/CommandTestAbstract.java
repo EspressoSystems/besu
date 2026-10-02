@@ -512,6 +512,7 @@ public abstract class CommandTestAbstract {
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;
     private Vertx vertx;
     private VertxOptions vertxOptions;
+    private VertxOptions engineVertxOptions;
 
     TestBesuCommand(
         final Supplier<RlpBlockImporter> mockBlockImporter,
@@ -561,6 +562,12 @@ public abstract class CommandTestAbstract {
     }
 
     @Override
+    protected VertxOptions createEngineVertxOptions() {
+      engineVertxOptions = super.createEngineVertxOptions();
+      return engineVertxOptions;
+    }
+
+    @Override
     protected Vertx createVertx(final MetricsSystem metricsSystem) {
       vertx = super.createVertx(metricsSystem);
       return vertx;
@@ -580,6 +587,10 @@ public abstract class CommandTestAbstract {
 
     public VertxOptions getVertxOptions() {
       return vertxOptions;
+    }
+
+    public VertxOptions getEngineVertxOptions() {
+      return engineVertxOptions;
     }
 
     public P2PDiscoveryOptions getP2PDiscoveryOptions() {
