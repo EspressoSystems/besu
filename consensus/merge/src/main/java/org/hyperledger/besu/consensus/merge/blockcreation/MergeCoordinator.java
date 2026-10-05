@@ -479,6 +479,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 100,
                 miningConfiguration.getUnstable().getPosBlockCreationRepetitionMinDuration()
                     - lastDuration);
+        if (isBlockCreationCancelled(payloadIdentifier)) {
+          return null;
+        }
         LOG.debug("Waiting {}ms before repeating block creation", waitBeforeRepetition);
         Thread.sleep(waitBeforeRepetition);
       } catch (final CancellationException | InterruptedException ce) {
@@ -670,6 +673,14 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 false,
                 false);
 
+    // A later newPayload call can use its known-block path instead of executing the proposal again.
+    validationResult
+        .getYield()
+        .ifPresent(
+            outputs ->
+                protocolContext
+                    .getBlockchain()
+                    .storeBlock(block, outputs.getReceipts(), outputs.getBlockAccessList()));
     return validationResult;
   }
 
