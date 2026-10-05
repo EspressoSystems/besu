@@ -670,6 +670,14 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 false,
                 false);
 
+    // A later newPayload call can use its known-block path instead of executing the proposal again.
+    validationResult
+        .getYield()
+        .ifPresent(
+            outputs ->
+                protocolContext
+                    .getBlockchain()
+                    .storeBlock(block, outputs.getReceipts(), outputs.getBlockAccessList()));
     return validationResult;
   }
 
