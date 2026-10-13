@@ -57,10 +57,13 @@ jobs:
     runs-on: ubuntu-24.04-8core
     timeout-minutes: 45
     steps:
-      # fetch-depth: 0 for the tag history `git describe` reads below.
+      # `git describe` below walks HEAD's ancestry for the nearest release tag, which a shallow
+      # checkout cannot answer. blob:none keeps the commit graph it needs without historical
+      # file contents; blobs for the checked-out commit are fetched on demand.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
