@@ -57,7 +57,10 @@ jobs:
     runs-on: ubuntu-24.04-8core
     timeout-minutes: 45
     steps:
+      # fetch-depth: 0 for the tag history `git describe` reads below.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -74,11 +77,22 @@ jobs:
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "tags=${IMAGE_NAME}:${SLUG},${IMAGE_NAME}:${SHA}" >> "$GITHUB_OUTPUT"
 
+      # Without -Pversion, calculateVersion() falls back to "<yy.M>-develop-<sha>", dating the
+      # build rather than the code: 26.8.1-based commits report 26.10. Derive the base from the
+      # nearest upstream release tag instead, so a rebase onto a newer release needs no edit
+      # here. --exclude keeps a fork tag like 26.8.1-espresso.1 from being picked as the base.
+      - name: Derive version
+        id: version
+        run: |
+          set -euo pipefail
+          BASE=$(git describe --tags --abbrev=0 --match '[0-9]*' --exclude '*espresso*')
+          echo "version=${BASE}-espresso-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
       # docker/Dockerfile COPYs a `besu/` directory that does not exist in the repo. Gradle
       # untars the distribution into build/docker-besu/ and copies the Dockerfile beside it;
       # that staged directory is the build context used below.
       - name: Stage Docker build context
-        run: ./gradlew distDockerCopy
+        run: ./gradlew -Pversion="${{ steps.version.outputs.version }}" distDockerCopy
 
       - uses: docker/setup-buildx-action@v4
       - name: Log in to GHCR
@@ -96,7 +110,7 @@ jobs:
           provenance: false
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
-            VERSION=${{ steps.tags.outputs.slug }}-${{ steps.tags.outputs.sha }}
+            VERSION=${{ steps.version.outputs.version }}
             VCS_REF=${{ github.sha }}
           cache-from: type=gha,scope=espresso-image
           cache-to: type=gha,scope=espresso-image,mode=max
@@ -111,4 +125,6 @@ jobs:
             echo '```'
             echo
             echo "Also tagged \`${{ steps.tags.outputs.sha }}\`."
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo
+            echo "Besu reports \`${{ steps.version.outputs.version }}\` at startup."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
