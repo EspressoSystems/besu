@@ -236,6 +236,10 @@ public class MergeCoordinatorCacheReorgTest implements MergeGenesisConfigHelper 
                 Unstable.builder()
                     .posBlockCreationMaxTime(1)
                     .posBlockCreationRepetitionMinDuration(1)
+                    // building B1 caches its validation result, so with the cache on,
+                    // rememberBlock(B1) would reuse it instead of executing B1 after A1
+                    // became head, which removes the buggy code path this test exercises
+                    .posValidatedBlockCacheSize(0)
                     .build())
             .build();
 
