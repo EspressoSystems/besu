@@ -307,7 +307,6 @@ public class MainnetBlockValidator implements BlockValidator {
         return new BlockProcessingResult(
             Optional.of(
                 new BlockProcessingOutputs(
-                    worldState,
                     receipts,
                     maybeRequests,
                     processedBlockAccessList,
