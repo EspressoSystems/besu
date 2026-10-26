@@ -18,7 +18,6 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +26,6 @@ import java.util.Optional;
 /** Contains the outputs of processing a block. */
 public class BlockProcessingOutputs {
 
-  private final MutableWorldState worldState;
   private final List<TransactionReceipt> receipts;
   private final Optional<List<Request>> maybeRequests;
   private final Optional<BlockAccessList> maybeBlockAccessList;
@@ -37,66 +35,56 @@ public class BlockProcessingOutputs {
   /**
    * Creates a new instance.
    *
-   * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
    */
-  public BlockProcessingOutputs(
-      final MutableWorldState worldState, final List<TransactionReceipt> receipts) {
-    this(worldState, receipts, Optional.empty());
+  public BlockProcessingOutputs(final List<TransactionReceipt> receipts) {
+    this(receipts, Optional.empty());
   }
 
   /**
    * Creates a new instance.
    *
-   * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
    * @param maybeRequests the requests produced by processing the block
    */
   public BlockProcessingOutputs(
-      final MutableWorldState worldState,
-      final List<TransactionReceipt> receipts,
-      final Optional<List<Request>> maybeRequests) {
-    this(worldState, receipts, maybeRequests, Optional.empty(), 0);
+      final List<TransactionReceipt> receipts, final Optional<List<Request>> maybeRequests) {
+    this(receipts, maybeRequests, Optional.empty(), 0);
   }
 
   /**
    * Creates a new instance.
    *
-   * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
    * @param maybeRequests the requests produced by processing the block
    * @param blockAccessList the block-level access list produced by processing the block
    */
   public BlockProcessingOutputs(
-      final MutableWorldState worldState,
       final List<TransactionReceipt> receipts,
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList) {
-    this(worldState, receipts, maybeRequests, blockAccessList, 0);
+    this(receipts, maybeRequests, blockAccessList, 0);
   }
 
   /**
    * Creates a new instance.
    *
-   * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
    * @param maybeRequests the requests produced by processing the block
    * @param blockAccessList the block-level access list produced by processing the block
    * @param cumulativeBlockGasUsed the cumulative block gas used (pre-refund for EIP-7778)
    */
   public BlockProcessingOutputs(
-      final MutableWorldState worldState,
       final List<TransactionReceipt> receipts,
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed) {
-    this(worldState, receipts, maybeRequests, blockAccessList, cumulativeBlockGasUsed, Map.of());
+    this(receipts, maybeRequests, blockAccessList, cumulativeBlockGasUsed, Map.of());
   }
 
   /**
    * Creates a new instance.
    *
-   * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
    * @param maybeRequests the requests produced by processing the block
    * @param blockAccessList the block-level access list produced by processing the block
@@ -105,27 +93,16 @@ public class BlockProcessingOutputs {
    *     block number; always at least the parent
    */
   public BlockProcessingOutputs(
-      final MutableWorldState worldState,
       final List<TransactionReceipt> receipts,
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed,
       final Map<Long, Hash> accessedAncestors) {
-    this.worldState = worldState;
     this.receipts = receipts;
     this.maybeRequests = maybeRequests;
     this.maybeBlockAccessList = blockAccessList;
     this.cumulativeBlockGasUsed = cumulativeBlockGasUsed;
     this.accessedAncestors = accessedAncestors;
-  }
-
-  /**
-   * Returns the world state after processing the block.
-   *
-   * @return the world state after processing the block
-   */
-  public MutableWorldState getWorldState() {
-    return worldState;
   }
 
   /**
