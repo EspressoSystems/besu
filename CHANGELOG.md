@@ -53,6 +53,7 @@
 - Update the discovery library to 26.10.1 for faster discv5 secp256k1 verification and ECDH, with Netty, BouncyCastle, Guava, Log4j and Reactor raised to the versions it requires. [#11671](https://github.com/besu-eth/besu/pull/11671)
 - With `--Xevm-v2`, `MessageFrame.getMaybeUpdatedMemory` and `getMaybeUpdatedStorage` are recorded only while a tracer that traces operations runs. [#11690](https://github.com/besu-eth/besu/pull/11690)
 - Update besu-native to 2.1.0 and compute the secp256k1 ECDH key agreements of RLPx handshakes and DiscV5 natively, which removes about 2 MB of allocation per agreement. [#11648](https://github.com/besu-eth/besu/pull/11648)
+- `engine_newPayload` no longer executes a block that this node built for `engine_getPayload`, and instead reuses the validation done while building it, which cuts `engine_newPayload` latency for blocks the node proposes. The hidden `--Xpos-validated-block-cache-size` option sets how many results are kept (default 4); `0` turns this off. [#11767](https://github.com/besu-eth/besu/pull/11767)
 
 ## 26.10.1
 
