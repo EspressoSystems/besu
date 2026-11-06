@@ -1,10 +1,22 @@
 name: Espresso CI
 
-# Fork CI: every push to any branch builds, tests, and publishes an image tagged with the
-# branch name. Kept out of upstream's ci.yml so upstream merges stay clean.
+# Fork CI: a push to an espresso-* or personal branch builds, tests, and publishes an image
+# tagged with the branch name, and a pull request into an espresso-* branch builds and tests it.
+# Only Espresso members can push those branches. Other branches, such as those of upstream pull
+# requests, publish an image only when run manually. Kept out of upstream's ci.yml so upstream
+# merges stay clean.
 
 on:
   push:
+    branches:
+      - 'espresso-*'
+      - 'igor/*'
+      - 'jb/*'
+      - 'jh/*'
+      - 'varun/*'
+  pull_request:
+    branches:
+      - 'espresso-*'
   workflow_dispatch:
 
 concurrency:
@@ -54,6 +66,7 @@ jobs:
   # No `needs:`: a failing test shouldn't delay the image. distDockerCopy compiles, so a
   # broken build still fails here.
   image:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04-8core
     timeout-minutes: 45
     steps:
