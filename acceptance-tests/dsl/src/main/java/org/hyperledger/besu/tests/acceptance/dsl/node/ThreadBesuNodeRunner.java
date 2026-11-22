@@ -28,6 +28,7 @@ import org.hyperledger.besu.chainimport.JsonBlockImporter;
 import org.hyperledger.besu.chainimport.RlpBlockImporter;
 import org.hyperledger.besu.cli.BesuCommand;
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
+import org.hyperledger.besu.cli.options.RPCOptions;
 import org.hyperledger.besu.components.BesuComponent;
 import org.hyperledger.besu.config.CheckpointConfigOptions;
 import org.hyperledger.besu.config.GenesisConfig;
@@ -113,6 +114,7 @@ import dagger.Module;
 import dagger.Provides;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -185,6 +187,11 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
 
     runnerBuilder
         .vertx(Vertx.vertx())
+        .engineVertx(
+            Vertx.vertx(
+                new VertxOptions()
+                    .setWorkerPoolSize(RPCOptions.DEFAULT_ENGINE_WORKER_POOL_SIZE)
+                    .setEventLoopPoolSize(RPCOptions.DEFAULT_ENGINE_EVENT_LOOP_POOL_SIZE)))
         .besuController(besuController)
         .ethNetworkConfig(ethNetworkConfig)
         .discoveryEnabled(node.isDiscoveryEnabled())
