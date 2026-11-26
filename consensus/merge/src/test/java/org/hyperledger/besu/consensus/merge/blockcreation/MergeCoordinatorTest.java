@@ -93,6 +93,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -102,6 +103,7 @@ import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.aggregator.ArgumentsAccessor;
@@ -686,6 +688,88 @@ public class MergeCoordinatorTest implements MergeGenesisConfigHelper {
 
     verify(mergeContext, atLeast(retries.intValue())).putPayloadById(payloadWrapper.capture());
     assertThat(payloadWrapper.getValue().payloadIdentifier()).isEqualTo(payloadId);
+  }
+
+  @Test
+  @Timeout(value = 20, unit = TimeUnit.SECONDS)
+  public void shouldResolveBlockCreationFuturePromptlyWhenCancelledDuringSelection()
+      throws ExecutionException, InterruptedException {
+    CountDownLatch inSelection = new CountDownLatch(1);
+    CountDownLatch releaseBuild = new CountDownLatch(1);
+
+    MergeCoordinator.MergeBlockCreatorFactory mergeBlockCreatorFactory =
+        (parentHeader, address) -> {
+          MergeBlockCreator beingSpiedOn =
+              spy(
+                  new MergeBlockCreator(
+                      miningConfiguration,
+                      parent -> Bytes.EMPTY,
+                      transactionPool,
+                      protocolContext,
+                      protocolSchedule,
+                      parentHeader,
+                      ethScheduler));
+
+          // First call (empty block, synchronous in preparePayload): run normally so that
+          // preparePayload completes and the retry loop is started.
+          // Second call (inside the retry loop): signal that selection has started and park
+          // until the test releases it, then proceed with real block creation.
+          doCallRealMethod()
+              .doAnswer(
+                  invocation -> {
+                    inSelection.countDown();
+                    releaseBuild.await();
+                    return invocation.callRealMethod();
+                  })
+              .when(beingSpiedOn)
+              .createBlock(
+                  any(),
+                  any(Bytes32.class),
+                  anyLong(),
+                  eq(Optional.empty()),
+                  eq(Optional.empty()),
+                  eq(Optional.empty()),
+                  eq(Optional.empty()),
+                  any());
+          return beingSpiedOn;
+        };
+
+    MiningConfiguration miningConfig =
+        ImmutableMiningConfiguration.builder()
+            .from(miningConfiguration)
+            .unstable(
+                Unstable.builder()
+                    .posBlockCreationRepetitionMinDuration(120_000L)
+                    .posBlockCreationMaxTime(120_000L)
+                    .build())
+            .build();
+
+    MergeCoordinator mergeCoordinator =
+        new MergeCoordinator(
+            protocolContext,
+            protocolSchedule,
+            ethScheduler,
+            miningConfig,
+            backwardSyncContext,
+            mergeBlockCreatorFactory);
+
+    try {
+      var payloadId =
+          mergeCoordinator.preparePayload(
+              new PreparePayloadArgsBuilder()
+                  .parentHeader(genesisState.getBlock().getHeader())
+                  .timestamp(System.currentTimeMillis() / 1000)
+                  .prevRandao(Bytes32.ZERO)
+                  .feeRecipient(suggestedFeeRecipient)
+                  .build());
+
+      inSelection.await();
+      mergeCoordinator.finalizeProposalById(payloadId);
+    } finally {
+      releaseBuild.countDown();
+    }
+
+    blockCreationTask.get();
   }
 
   @Test
